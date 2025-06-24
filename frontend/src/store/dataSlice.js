@@ -1,12 +1,12 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { fetchCareNotes, createCareNote } from '../api/careNotesApi';
+import dataLayer from '../data/dataLayer';
 
-// Async thunks for API calls
+// Async thunks for data layer operations
 export const fetchCareNotesAsync = createAsyncThunk(
   'data/fetchCareNotes',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetchCareNotes();
+      const response = await dataLayer.fetchAndSyncData();
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -18,7 +18,20 @@ export const createCareNoteAsync = createAsyncThunk(
   'data/createCareNote',
   async (noteData, { rejectWithValue }) => {
     try {
-      const response = await createCareNote(noteData);
+      const response = await dataLayer.addNote(noteData);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const syncOfflineDataAsync = createAsyncThunk(
+  'data/syncOfflineData',
+  async (_, { rejectWithValue }) => {
+    try {
+      await dataLayer.syncOfflineData();
+      const response = await dataLayer.fetchAndSyncData();
       return response;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -29,7 +42,10 @@ export const createCareNoteAsync = createAsyncThunk(
 const initialState = {
   residents: [],
   loading: false,
-  error: null
+  error: null,
+  isOffline: false,
+  lastSyncTime: null,
+  syncQueueLength: 0
 };
 
 const dataSlice = createSlice({
@@ -38,6 +54,15 @@ const dataSlice = createSlice({
   reducers: {
     clearError: (state) => {
       state.error = null;
+    },
+    setOfflineStatus: (state, action) => {
+      state.isOffline = action.payload;
+    },
+    updateSyncQueueLength: (state, action) => {
+      state.syncQueueLength = action.payload;
+    },
+    updateLastSyncTime: (state, action) => {
+      state.lastSyncTime = action.payload;
     },
     updateResident: (state, action) => {
       const { id, ...updatedData } = action.payload;
@@ -60,6 +85,8 @@ const dataSlice = createSlice({
       .addCase(fetchCareNotesAsync.fulfilled, (state, action) => {
         state.loading = false;
         state.residents = action.payload;
+        state.lastSyncTime = dataLayer.getLastSyncTime();
+        state.syncQueueLength = dataLayer.getSyncQueue().length;
       })
       .addCase(fetchCareNotesAsync.rejected, (state, action) => {
         state.loading = false;
@@ -72,14 +99,43 @@ const dataSlice = createSlice({
       })
       .addCase(createCareNoteAsync.fulfilled, (state, action) => {
         state.loading = false;
-        state.residents.push(action.payload);
+        // Update the note if it already exists (offline case)
+        const existingIndex = state.residents.findIndex(note => note.id === action.payload.id);
+        if (existingIndex !== -1) {
+          state.residents[existingIndex] = action.payload;
+        } else {
+          state.residents.push(action.payload);
+        }
+        state.syncQueueLength = dataLayer.getSyncQueue().length;
       })
       .addCase(createCareNoteAsync.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Sync offline data
+      .addCase(syncOfflineDataAsync.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(syncOfflineDataAsync.fulfilled, (state, action) => {
+        state.loading = false;
+        state.residents = action.payload;
+        state.lastSyncTime = dataLayer.getLastSyncTime();
+        state.syncQueueLength = dataLayer.getSyncQueue().length;
+      })
+      .addCase(syncOfflineDataAsync.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
   }
 });
 
-export const { clearError, updateResident, deleteResident } = dataSlice.actions;
+export const { 
+  clearError, 
+  setOfflineStatus, 
+  updateSyncQueueLength, 
+  updateLastSyncTime,
+  updateResident, 
+  deleteResident 
+} = dataSlice.actions;
 export default dataSlice.reducer; 

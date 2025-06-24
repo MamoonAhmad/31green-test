@@ -11,7 +11,7 @@ pip install -r requirements.txt
 
 2. Run the server:
 ```bash
-python main.py
+fastapi dev main.py
 ```
 
 Or using uvicorn directly:
