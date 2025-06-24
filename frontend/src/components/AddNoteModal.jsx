@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
-import { createCareNoteAsync } from "../store/dataSlice";
+import { createCareNoteAsync } from "../store/careNotesSlice";
 import {
   Dialog,
   DialogContent,

@@ -4,7 +4,7 @@ import ResidentCard from "./components/ResidentCard";
 import AddNoteModal from "./components/AddNoteModal";
 import { Button } from "./components/ui/button";
 import { Plus, Wifi, WifiOff, RefreshCw } from "lucide-react";
-import { fetchCareNotesAsync, syncOfflineDataAsync, setOfflineStatus } from "./store/dataSlice";
+import { fetchCareNotesAsync, syncOfflineDataAsync, setOfflineStatus } from "./store/careNotesSlice";
 import dataLayer from "./data/dataLayer";
 
 function App() {
